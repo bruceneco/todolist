@@ -22,6 +22,13 @@ const itemsSchema = {
 
 const Item = mongoose.model("Item", itemsSchema);
 
+const listSchema = {
+  name: String,
+  items: [itemsSchema]
+};
+
+const List = mongoose.model("List", listSchema);
+
 const item1 = new Item({
   name: "Welcome to your todolist!"
 });
@@ -51,13 +58,48 @@ app.get("/", function(req, res) {
   });
 });
 
+app.get("/:customListName", (req, res) => {
+  const listName = req.params.customListName;
+  List.findOne({ name: listName }, (err, foundList) => {
+    if (!err) {
+      if (!foundList) {
+        // Create a new list.
+        const list = new List({
+          name: listName,
+          items: defaultItems
+        });
+
+        list.save();
+        res.redirect("/" + listName);
+      } else {
+        // Show an existing list.
+        res.render("list", {
+          listTitle: foundList.name,
+          newListItems: foundList.items
+        });
+      }
+    }
+  });
+});
+
 app.post("/", function(req, res) {
   const itemName = req.body.newItem;
+  const listName = req.body.list;
+
   const item = new Item({
     name: itemName
   });
-  item.save();
-  res.redirect("/");
+
+  if (listName == "Today") {
+    item.save();
+    res.redirect("/");
+  } else {
+    List.findOne({ name: listName }, (err, listFound) => {
+      listFound.items.push(item);
+      listFound.save();
+      res.redirect("/" + listName);
+    });
+  }
 });
 
 app.post("/delete", (req, res) => {
